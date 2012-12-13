@@ -1,0 +1,13 @@
+name = "Localization groups"
+description = Organic groups mapping for localization server
+dependencies[] = l10n_community
+dependencies[] = og_context
+package = "Localization server"
+core = 7.x
+
+; Information added by drupal.org packaging script on 2012-10-31
+version = "7.x-1.x-dev"
+core = "7.x"
+project = "l10n_server"
+datestamp = "1351689052"
+
