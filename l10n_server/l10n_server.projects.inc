@@ -315,6 +315,7 @@ function l10n_server_admin_projects_cleanup_form_submit($form, &$form_state) {
  * Project editing and submission form.
  */
 function l10n_server_admin_projects_edit_form($form, &$form_state, $project_uri = NULL) {
+
   if (!isset($project_uri)) {
     $connector_list = l10n_server_get_add_enabled_project_connectors();
     // Provide sensible default for project if adding new one.
@@ -373,6 +374,12 @@ function l10n_server_admin_projects_edit_form($form, &$form_state, $project_uri 
     '#description' => t('Weight of the project. Lighter projects float up when ordering by weight.'),
     '#default_value' => $project->weight,
   );
+  $form['accept_suggestions'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Override suggestions'),
+    '#description' => t('NOT YET FUNCTIONAL! Should this project accepts submissions right away? If checked incoming translations will be accepted right away'),
+    '#default_value' => 0,
+  );
   $form['submit'] = array(
     '#type' => 'submit',
     '#value' => t('Save project'),
@@ -402,13 +409,12 @@ function l10n_server_admin_projects_edit_form_validate($form, &$form_state) {
  */
 function l10n_server_admin_projects_edit_form_submit($form, &$form_state) {
   $new_project = $form_state['values']['previous_project'];
-  foreach (array('uri', 'title', 'home_link', 'connector_module', 'weight') as $property) {
+  foreach (array('uri', 'title', 'home_link', 'connector_module', 'weight', 'accept_suggestions') as $property) {
     if (isset($form_state['values'][$property])) {
       $new_project->$property = $form_state['values'][$property];
     }
   }
   $new_project->weight = (int) $new_project->weight;
-
   drupal_write_record('l10n_server_project', $new_project, !empty($new_project->pid) ? 'pid' : array());
   drupal_set_message(t('Project data saved.'));
   $form_state['redirect'] = 'admin/l10n_server/projects';

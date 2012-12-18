@@ -972,6 +972,7 @@ function l10n_community_ajax_releases($form, $form_state) {
  *   User ID to use to keep history of.
  * @param $medium
  *   Medium type constant L10N_SERVER_MEDIUM_*
+ * @return bool|\DatabaseStatementInterface|int|null
  */
 function l10n_community_add_suggestion($sid, $translation, $langcode, $uid_attribution, $uid_user, $medium) {
 
@@ -1042,7 +1043,10 @@ function l10n_community_add_suggestion($sid, $translation, $langcode, $uid_attri
 
   // Mark the existing or mock translation as having suggestions.
   l10n_community_update_string_status($langcode, $sid);
-
+  // If we're accepting translations right away approve it.
+  if(variable_get('l10n_community_override_suggestions', FALSE) == TRUE){
+    l10n_community_approve_string($langcode, $sid, $tid);
+  }
   return $tid;
 }
 
