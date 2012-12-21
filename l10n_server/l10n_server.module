@@ -656,6 +656,7 @@ function l10n_server_split_connector($connector_module) {
  *   Callback invoked to save a string.
  * @param $callback_arguments
  *   Array of arguments to pass on to the callback after the string found.
+ * @return bool
  */
 function l10n_server_parse_po($file, $string_callback, $callback_arguments) {
   include_once DRUPAL_ROOT . '/' . 'includes/locale.inc';

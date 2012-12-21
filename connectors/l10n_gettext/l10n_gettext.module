@@ -112,6 +112,7 @@ function l10n_gettext_store_string($value = NULL, $pid = NULL, $rid = NULL, $fid
 	->execute();
     }
     $sids[$sid] = 1;
+    return $sid;
   }
   else {
     return count($sids);

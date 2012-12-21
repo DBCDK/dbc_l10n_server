@@ -88,7 +88,7 @@ function l10n_remote_xmlrpc() {
     array(
       'l10n.submit.translation',
       'l10n_remote_xmlrpc_string_submit',
-      array('struct', 'string', 'string', 'string', 'int', 'string', 'string'),
+      array('struct', 'string', 'string', 'string', 'int', 'string', 'string', 'string', 'string'),
       t('Handle remote string submissions.'),
     ),
   );
@@ -119,18 +119,18 @@ function l10n_remote_xmlrpc_status($version) {
 /**
  * XML-RPC callback to submit strings remotely.
  */
-function l10n_remote_xmlrpc_string_submit($langcode, $source, $translation, $uid, $client_token, $signature) {
+function l10n_remote_xmlrpc_string_submit($langcode, $source, $translation, $uid, $client_token, $signature, $context, $project) {
 
   // Check signature and permission parameters.
   if (!($uid && $signature == md5(l10n_remote_user_api_key($uid, $client_token) . $langcode . $source . $translation . $client_token))) {
-    //watchdog('l10n_community', 'Submitted translation with wrong parameters or signature.', NULL, WATCHDOG_WARNING);
+    watchdog('l10n_community', 'Submitted translation with wrong parameters or signature.', NULL, WATCHDOG_WARNING);
     return array('status' => FALSE, 'reason' => 'Wrong parameters or signature. Did you set your user API key on your user account page?');
   }
 
   // Check whether we have an actual translation to save.
   $translation = trim($translation);
   if (empty($translation)) {
-    //watchdog('l10n_community', 'Empty remote translation submission.', NULL, WATCHDOG_WARNING);
+    watchdog('l10n_community', 'Empty remote translation submission.', NULL, WATCHDOG_WARNING);
     return array('status' => FALSE, 'reason' => 'Empty translations are not saved.');
   }
 
@@ -139,14 +139,14 @@ function l10n_remote_xmlrpc_string_submit($langcode, $source, $translation, $uid
   // To return a single user object, wrap "user_load_multiple" with "array_shift" or equivalent.
   // Example: array_shift(user_load_multiple(array(), $uid))
   if (!(($account = user_load($uid)) && $account->status && user_access('access localization community', $account) && user_access('submit suggestions remotely', $account))) {
-    //watchdog('l10n_community', 'Unauthorized or blocked user attempted submission.', NULL, WATCHDOG_WARNING);
+    watchdog('l10n_community', 'Unauthorized or blocked user attempted submission.', NULL, WATCHDOG_WARNING);
     return array('status' => FALSE, 'reason' => 'Blocked user account or no permission to submit translations.');
   }
 
   // Check that the language is set up on the server at all.
   $languages = l10n_community_get_languages('name');
   if (!isset($languages[$langcode])) {
-    //watchdog('l10n_community', 'Language not allowed for remote submission.', NULL, WATCHDOG_WARNING);
+    watchdog('l10n_community', 'Language not allowed for remote submission.', NULL, WATCHDOG_WARNING);
     return array('status' => FALSE, 'reason' => 'Language not accepted.');
   }
 
@@ -160,7 +160,7 @@ function l10n_remote_xmlrpc_string_submit($langcode, $source, $translation, $uid
 
   // Check if the user has permission to submit strings in this language.
   if (!user_access('submit suggestions', $account)) {
-    //watchdog('l10n_community', 'Not allowed to submit translations in this language remotely.', NULL, WATCHDOG_WARNING);
+    watchdog('l10n_community', 'Not allowed to submit translations in this language remotely.', NULL, WATCHDOG_WARNING);
     return array('status' => FALSE, 'reason' => 'Not allowed to submit translations in this language.');
   }
 
@@ -168,25 +168,75 @@ function l10n_remote_xmlrpc_string_submit($langcode, $source, $translation, $uid
   // @todo: add context support as soon as l10n_client starts to support it!
   // @todo: append $context to $source in MD5 counting when available.
   $select = db_select('l10n_server_string', 's')->fields('s', array('sid'))
-    ->condition('hashkey', md5($source));
+    ->condition('hashkey', md5($source . $context));
   $sid = $select->execute()->fetchField();
   if (!$sid) {
-    //watchdog('l10n_community', 'Source string does not exist on server.', NULL, WATCHDOG_WARNING);
-    return array('status' => FALSE, 'reason' => 'Source string not found on server, translation not saved.');
+    watchdog('l10n_community', 'Source string does not exist on server.', array(), WATCHDOG_WARNING);
+    //TODO mmj instead of giving the user a warning the string should be attached to the project and saved. Informing the user that the string was unknown but saved.
+    //TODO mmj do this in a nicer way...
+    if($project != NULL) {
+      $sid = dbc_l10n_remote_add_string($langcode, $source, $translation, $uid, $client_token, $signature, $context, $project);
+      watchdog('l10n_community', 'Source string was saved as a new string.', array(), WATCHDOG_INFO);
+    }
+    else {
+      watchdog('l10n_community', 'Source string was NOT saved as a new string.', array(), WATCHDOG_ERROR);
+      return array('status' => FALSE, 'reason' => 'Source string not found on server, translation not saved.');
+    }
   }
 
   // Attempt to add this as a suggestion.
   $tid = l10n_community_add_suggestion($sid, $translation, $langcode, $uid, $uid, L10N_SERVER_MEDIUM_REMOTE);
 
   if ($tid === FALSE) {
-    //watchdog('l10n_community', 'Duplicate translation submitted.', NULL, WATCHDOG_WARNING);
+    watchdog('l10n_community', 'Duplicate translation submitted.', NULL, WATCHDOG_WARNING);
     return array('status' => FALSE, 'reason' => 'Suggested translation already appears as active translation or suggestion.');
   }
   elseif ($tid === NULL) {
-    //watchdog('l10n_community', 'Empty suggestions are not saved.', NULL, WATCHDOG_WARNING);
+    watchdog('l10n_community', 'Empty suggestions are not saved.', NULL, WATCHDOG_WARNING);
     return array('status' => FALSE, 'reason' => 'Empty suggestions are not saved.');
   }
 
   // If we got this far, everything is fine. Signal success to the client.
   return array('status' => TRUE, 'sid' => $sid);
+}
+
+/**
+ * @param $langcode String
+ * @param $source String
+ * @param $translation String
+ * @param $uid int
+ * @param $client_token String
+ * @param $signature String
+ * @param $context String
+ * @param $project String
+ * @return int
+ */
+function dbc_l10n_remote_add_string($langcode, $source, $translation, $uid, $client_token, $signature, $context, $project) {
+  module_load_include('module', 'l10n_gettext');
+  $value = array(
+    'msgid' => $source,
+    'msgctxt' => $context,
+  );
+
+  //TODO the below three queries to db could probably be made in one call
+  $pid = db_select('l10n_server_project', 'p')->fields('p', array('pid'))
+    ->condition('uri', $project)
+    ->execute()
+    ->fetchField();
+
+  $rid = db_select('l10n_server_release', 'r')->fields('r', array('rid'))
+    ->condition('pid', $pid)
+    ->orderBy('rid', 'DESC')
+    ->execute()
+    ->fetchField();
+
+  $fid = db_select('l10n_server_file', 'f')->fields('f', array('fid'))
+    ->condition('pid', $pid)
+    ->condition('rid', $rid)
+    ->execute()
+    ->fetchField();
+
+  $sid = l10n_gettext_store_string($value, $pid, $rid, $fid);
+
+  return $sid;
 }
