@@ -998,7 +998,7 @@ function l10n_community_add_suggestion($sid, $translation, $langcode, $uid_attri
     ->fetchObject();
 
   if (!empty($existing)) {
-    if ($existing->is_active == 0) {
+    if ($existing->is_active == 0 || variable_get('l10n_community_override_suggestions', FALSE) == TRUE) {
       // If the existing item is not active, make it an active suggestion and clean up its possible previous approval information.
       db_update('l10n_server_translation')
         ->fields(array(

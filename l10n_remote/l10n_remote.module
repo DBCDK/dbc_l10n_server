@@ -172,7 +172,6 @@ function l10n_remote_xmlrpc_string_submit($langcode, $source, $translation, $uid
   $sid = $select->execute()->fetchField();
   if (!$sid) {
     watchdog('l10n_community', 'Source string does not exist on server.', array(), WATCHDOG_WARNING);
-    //TODO mmj instead of giving the user a warning the string should be attached to the project and saved. Informing the user that the string was unknown but saved.
     //TODO mmj do this in a nicer way...
     if($project != NULL) {
       $sid = dbc_l10n_remote_add_string($langcode, $source, $translation, $uid, $client_token, $signature, $context, $project);
@@ -201,6 +200,8 @@ function l10n_remote_xmlrpc_string_submit($langcode, $source, $translation, $uid
 }
 
 /**
+ * If source doesn't exsist already it will be added to db
+ *
  * @param $langcode String
  * @param $source String
  * @param $translation String
