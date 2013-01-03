@@ -838,10 +838,9 @@ function l10n_community_rebuild_stats() {
  */
 function l10n_community_get_highlighted_project() {
   if ($highlight_project = variable_get('l10n_community_highlighted_project', '')) {
-    $result = db_query(
-      "SELECT * FROM {l10n_server_project} WHERE title = :title",
-      array(':title' => $highlight_project)
-    );
+    $result = db_select('l10n_server_project', 'p')->fields('p')
+      ->condition('title', $highlight_project)
+      ->execute();
     if ($project = $result->fetchObject()) {
       return $project;
     }
@@ -856,6 +855,7 @@ function l10n_community_get_highlighted_project() {
  *
  * @param $params
  *   Associative array with unsanitized values.
+ * @return array
  */
 function l10n_community_build_filter_values($params) {
   $project = $release = NULL;
@@ -972,9 +972,11 @@ function l10n_community_ajax_releases($form, $form_state) {
  *   User ID to use to keep history of.
  * @param $medium
  *   Medium type constant L10N_SERVER_MEDIUM_*
+ * @param $accept_suggestions
+ * @internal param int|null $pid
  * @return bool|\DatabaseStatementInterface|int|null
  */
-function l10n_community_add_suggestion($sid, $translation, $langcode, $uid_attribution, $uid_user, $medium) {
+function l10n_community_add_suggestion($sid, $translation, $langcode, $uid_attribution, $uid_user, $medium, $accept_suggestions) {
 
   // Load source string and adjust translation whitespace based on source.
   $source_string = db_query('SELECT value FROM {l10n_server_string} WHERE sid = :sid', array(':sid' => $sid))->fetchField();
@@ -998,7 +1000,7 @@ function l10n_community_add_suggestion($sid, $translation, $langcode, $uid_attri
     ->fetchObject();
 
   if (!empty($existing)) {
-    if ($existing->is_active == 0 || variable_get('l10n_community_override_suggestions', FALSE) == TRUE) {
+    if ($existing->is_active == 0 || $accept_suggestions) {
       // If the existing item is not active, make it an active suggestion and clean up its possible previous approval information.
       db_update('l10n_server_translation')
         ->fields(array(
@@ -1044,7 +1046,7 @@ function l10n_community_add_suggestion($sid, $translation, $langcode, $uid_attri
   // Mark the existing or mock translation as having suggestions.
   l10n_community_update_string_status($langcode, $sid);
   // If we're accepting translations right away approve it.
-  if(variable_get('l10n_community_override_suggestions', FALSE) == TRUE){
+  if($accept_suggestions){
     l10n_community_approve_string($langcode, $sid, $tid);
   }
   return $tid;

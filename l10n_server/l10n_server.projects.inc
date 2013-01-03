@@ -377,8 +377,8 @@ function l10n_server_admin_projects_edit_form($form, &$form_state, $project_uri 
   $form['accept_suggestions'] = array(
     '#type' => 'checkbox',
     '#title' => t('Override suggestions'),
-    '#description' => t('NOT YET FUNCTIONAL! Go to ' .l(t('l10n_server settings'), 'admin/l10n_server/l10n_community') . ' to enable the functionality. Should this project accepts submissions right away? If checked incoming translations will be accepted right away'),
-    '#default_value' => 0,
+    '#description' => t('Should this project accepts submissions right away? If checked incoming translations will be accepted right away'),
+    '#default_value' => !empty($project->accept_suggestions),
   );
   $form['submit'] = array(
     '#type' => 'submit',

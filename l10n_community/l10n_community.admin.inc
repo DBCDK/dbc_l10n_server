@@ -34,12 +34,6 @@ function l10n_community_settings_form($form, &$form_state) {
     '#default_value' => variable_get('l10n_community_import_user', ''),
     '#autocomplete_path' => 'user/autocomplete',
   );
-  $form['l10n_community_override_suggestions'] = array(
-    '#title' => t('Override the default suggestions feature'),
-    '#description' => t('If checked, will incomming translations be accepted right away'),
-    '#type' => 'checkbox',
-    '#default_value' => variable_get('l10n_community_override_suggestions', FALSE),
-  );
   $form['l10n_community_highlighted_project'] = array(
     '#title' => t('Highlight project on the welcome page'),
     '#description' => t('Pick a project which will be highlighted on the welcome page, so progress of all translation teams can be seen instantly.'),
