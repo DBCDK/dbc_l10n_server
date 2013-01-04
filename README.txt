@@ -20,7 +20,15 @@ with the patch found at:
 https://raw.github.com/DBCDK/patches/master/dbc_l10n_client/
 dbc_l10n_client_patch.patch
 
+Note that this module in general lacks testing. However, if you plan to make
+any changes should the exsisting tests be run ahead of development as well as
+new code should not be commited without sufficient testing.
+
 Feel free to fork, clone and modify the code as needed.
+
+All changes made to the module compared to l10n_server 7.x-1.x-dev is collected
+into the patch found at: https://raw.github.com/DBCDK/patches/master/
+dbc_l10n_server/dbc_l10n_server_single_patch.patch
 
 Martin Møller http://drupal.org/user/707688/ (Current DBC maintainer)
 

@@ -1,0 +1,123 @@
+<?php
+/**
+ * Author: Martin Møller
+ */
+class L10nRemoteTest extends DrupalWebTestCase {
+
+  private $translation_request;
+
+  public static function getInfo() {
+    return array(
+      'name' => t('L10n Remote'),
+      'description' => t('Ensure that the L10n Remote functions properly.'),
+      'group' => t('Localization server'),
+    );
+  }
+
+  public function setUp() {
+    parent::setUp('l10n_remote', 'l10n_server');
+    module_load_include('module', 'l10n_remote');
+    module_load_include('inc', 'l10n_server', 'l10n_server.projects');
+
+    $this->u_translater_1 = $this->drupalCreateUser(array('access localization community','submit suggestions remotely'));
+    $this->u_translater_2 = $this->drupalCreateUser(array('access localization community','submit suggestions remotely', 'submit suggestions'));
+    /*
+    $admin = $this->drupalCreateUser(array('access content', 'administer languages', 'access localization community', 'administer localization server', 'import gettext files'));
+    debug($admin);
+    */
+
+    //Create a project on the server for test purpuse
+    $form_state = unserialize(file_get_contents(drupal_get_path('module', 'l10n_remote') . '/tests/mockups/form_state_add_project_submit.txt'));
+    $hest = l10n_server_admin_projects_edit_form_submit(array(), $form_state);
+    /*
+    $this->drupalLogin($admin);
+    $edit = array('uri' => 'test_project', 'title' => 'Test Project', 'accept_suggestions' => TRUE);
+    $this->drupalGet('admin');
+    #$this->drupalPost('admin/l10n_server/projects/add', $edit, 'op');
+    */
+
+    //Load module / mockup
+
+    $this->translation_request = unserialize(file_get_contents(drupal_get_path('module', 'l10n_remote') . '/tests/mockups/translation_en_da.txt'));
+
+    //Add language da to databse
+    db_insert('languages')
+      ->fields(array(
+      'language' => 'da',
+      'name' => 'Danish',
+      'native' => 'Dansk',
+      'direction' => 0,
+      'enabled' => 1,
+      'plurals' => 0,
+      'prefix' => 'da',
+      'weight' => 0,
+    ))
+      ->execute();
+  }
+
+  public function testStringSubmission() {
+    $this->drupalLogin($this->u_translater_1);
+
+    //Test for wrong parameteres
+    $uid = $this->translation_request['uid'];
+    $uid = $this->loggedInUser->uid;
+    $client_token = $this->translation_request['client_token'];
+    $langcode = $this->translation_request['langcode'];
+    $source = $this->translation_request['source'];
+    $translation = $this->translation_request['translation'];
+    $signature = $this->translation_request['signature'];
+    $context = $this->translation_request['context'];
+    $project = $this->translation_request['project'];
+
+    $resp = $this->_submitTranslation($langcode, $source, $translation, $uid, $client_token, $signature, $context, $project);
+    $this->assertEqual($resp['reason'], 'Wrong parameters or signature. Did you set your user API key on your user account page?', t('Response: %response', array('%response' => $resp['reason'])));
+
+    //Test for empty translation. Empty translations should not be accepted
+    $fake_translation = '';
+    $fake_signature = md5(l10n_remote_user_api_key($uid, $client_token) . $langcode . $source . $fake_translation  . $client_token);
+    $resp = $this->_submitTranslation($langcode, $source, $fake_translation, $uid, $client_token, $fake_signature, $context, $project);
+    $this->assertEqual($resp['reason'], 'Empty translations are not saved.', t('Response: %response', array('%response' => $resp['reason'])));
+
+    //Test for unauthorized account used for submission
+    $fake_uid = 50;
+    $fake_signature = md5(l10n_remote_user_api_key($fake_uid, $client_token) . $langcode . $source . $translation  . $client_token);
+    $resp = $this->_submitTranslation($langcode, $source, $translation, $fake_uid, $client_token, $fake_signature, $context, $project);
+    $this->assertEqual($resp['reason'], 'Blocked user account or no permission to submit translations.', t('Response: %response', array('%response' => $resp['reason'])));
+
+    //Test for not accepted language
+    $fake_langcode = 'de';
+    $fake_signature = md5(l10n_remote_user_api_key($uid, $client_token) . $fake_langcode . $source . $translation  . $client_token);
+    $resp = $this->_submitTranslation($fake_langcode, $source, $translation, $uid, $client_token, $fake_signature, $context, $project);
+    $this->assertEqual($resp['reason'], 'Language not accepted.', t('Response: %response', array('%response' => $resp['reason'])));
+
+    //Test for user without permission to submit translations
+    $fake_signature = md5(l10n_remote_user_api_key($uid, $client_token) . $langcode . $source . $translation  . $client_token);
+    $resp = $this->_submitTranslation($langcode, $source, $translation, $uid, $client_token, $fake_signature, $context, $project);
+    $this->assertEqual($resp['reason'], 'Not allowed to submit translations in this language.', t('Response: %response', array('%response' => $resp['reason'])));
+
+    //Test for submission of translations for unknown projects
+    $this->drupalLogin($this->u_translater_2);
+    $uid = $this->loggedInUser->uid;
+
+    $fake_project = 'fake_project';
+    $fake_signature = md5(l10n_remote_user_api_key($uid, $client_token) . $langcode . $source . $translation  . $client_token);
+    $resp = $this->_submitTranslation($langcode, $source, $translation, $uid, $client_token, $fake_signature, $context, $fake_project);
+    $this->assertEqual($resp['reason'], 'Project "fake_project" doesn\'t exist on server, translation not saved.', t('Response: %response', array('%response' => $resp['reason'])));
+  }
+
+  /**
+   * @param String $langcode
+   * @param String $translation
+   * @param String $source
+   * @param String $uid
+   * @param String $client_token
+   * @param String $signature
+   * @param String $context
+   * @param String $project
+   * @return array Response
+   */
+  private function _submitTranslation($langcode, $source, $translation, $uid, $client_token, $signature, $context, $project){
+    $response = l10n_remote_xmlrpc_string_submit($langcode, $source, $translation, $uid, $client_token, $signature, $context, $project);
+    return $response;
+  }
+}

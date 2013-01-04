@@ -4,6 +4,8 @@ dependencies[] = l10n_community
 package = "Localization server"
 core = 7.x
 
+files[] = tests/l10n_remote.test
+
 ; Information added by drupal.org packaging script on 2012-10-31
 version = "7.x-1.x-dev"
 core = "7.x"

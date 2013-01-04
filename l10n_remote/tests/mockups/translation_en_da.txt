@@ -1,0 +1,1 @@
+a:8:{s:8:"langcode";s:2:"da";s:6:"source";s:13:"Configuration";s:11:"translation";s:13:"Konfiguration";s:3:"uid";i:1;s:12:"client_token";s:32:"9bb46bd397fe13f44e328bd288bba7c7";s:9:"signature";s:32:"37cf0d08d9de47e10a3850373d3f7c8e";s:7:"context";s:0:"";s:7:"project";s:11:"testproject";}
