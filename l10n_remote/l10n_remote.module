@@ -175,24 +175,26 @@ function l10n_remote_xmlrpc_string_submit($langcode, $source, $translation, $uid
   $sid = $select->execute()->fetchField();
   if (!$sid) {
     watchdog('l10n_community', 'Source string does not exist on server.', array(), WATCHDOG_WARNING);
-    if($project) {
+    if (!empty($project)) {
       $asoc = dbc_l10n_remote_add_string($source, $context, $project);
 
-      if(isset($asoc['error'])){
+      if (isset($asoc['error'])) {
         watchdog('l10n_community', 'Project %project could not be found on the server.', array('%project' => $project), WATCHDOG_ERROR);
         return array('status' => FALSE, 'reason' => $asoc['error'] . ', translation not saved.');
       }
-
       $sid = $asoc['sid'];
-      $pid = $asoc['pid'];
-      $sel = db_select('l10n_server_project', 'p')->fields('p', array('accept_suggestions'))
-        ->condition('pid', $pid);
-      $accept_suggestions = $sel->execute()->fetchField();
+      watchdog('l10n_community', 'An unknown string, %source, was added to the project %project', array('%source' => $source, '%project' => $project), WATCHDOG_INFO);
     }
     else {
       watchdog('l10n_community', 'Source string was NOT saved as a new string.', array(), WATCHDOG_ERROR);
       return array('status' => FALSE, 'reason' => 'Source string not found on server, translation not saved.');
     }
+  }
+
+  $accept_suggestions = 0;
+  if(!empty($project)){
+    $accept_suggestions = db_select('l10n_server_project', 'p')->fields('p', array('accept_suggestions'))
+      ->condition('uri', $project)->execute()->fetchField();
   }
 
   // Attempt to add this as a suggestion.
@@ -208,7 +210,7 @@ function l10n_remote_xmlrpc_string_submit($langcode, $source, $translation, $uid
   }
 
   // If we got this far, everything is fine. Signal success to the client.
-  return array('status' => TRUE, 'sid' => $sid);
+  return array('status' => TRUE, 'sid' => $sid, 'tid' => $tid);
 }
 
 /**
@@ -224,7 +226,7 @@ function l10n_remote_xmlrpc_string_submit($langcode, $source, $translation, $uid
  * @internal param String $signature
  * @return Array
  */
-function dbc_l10n_remote_add_string($source,$context, $project) {
+function dbc_l10n_remote_add_string($source, $context, $project) {
   module_load_include('module', 'l10n_gettext');
   $value = array(
     'msgid' => $source,
@@ -236,8 +238,8 @@ function dbc_l10n_remote_add_string($source,$context, $project) {
     ->execute()
     ->fetchField();
 
-  if(!$pid){
-    return array('error' => t('Project "@project" doesn\'t exist on server', array('@project' => $project)) );
+  if (!$pid) {
+    return array('error' => t('Project "@project" doesn\'t exist on server', array('@project' => $project)));
   }
 
   $rid = db_select('l10n_server_release', 'r')->fields('r', array('rid'))

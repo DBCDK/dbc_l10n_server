@@ -15,31 +15,24 @@ class L10nRemoteTest extends DrupalWebTestCase {
   }
 
   public function setUp() {
-    parent::setUp('l10n_remote', 'l10n_server');
+    //Setup and load needed modules and files
+    parent::setUp('l10n_remote', 'l10n_server', 'l10n_gettext');
     module_load_include('module', 'l10n_remote');
     module_load_include('inc', 'l10n_server', 'l10n_server.projects');
 
-    $this->u_translater_1 = $this->drupalCreateUser(array('access localization community','submit suggestions remotely'));
-    $this->u_translater_2 = $this->drupalCreateUser(array('access localization community','submit suggestions remotely', 'submit suggestions'));
-    /*
-    $admin = $this->drupalCreateUser(array('access content', 'administer languages', 'access localization community', 'administer localization server', 'import gettext files'));
-    debug($admin);
-    */
+    //Create the users we will use in this test
+    $this->u_translater_1 = $this->drupalCreateUser(array('access localization community', 'submit suggestions remotely'));
+    $this->u_translater_2 = $this->drupalCreateUser(array('access localization community', 'submit suggestions remotely', 'submit suggestions'));
 
-    //Create a project on the server for test purpuse
-    $form_state = unserialize(file_get_contents(drupal_get_path('module', 'l10n_remote') . '/tests/mockups/form_state_add_project_submit.txt'));
-    $hest = l10n_server_admin_projects_edit_form_submit(array(), $form_state);
-    /*
-    $this->drupalLogin($admin);
-    $edit = array('uri' => 'test_project', 'title' => 'Test Project', 'accept_suggestions' => TRUE);
-    $this->drupalGet('admin');
-    #$this->drupalPost('admin/l10n_server/projects/add', $edit, 'op');
-    */
+    //Create a project on the server for test purpuse ("testproject")
+    //Load form_state mockup
+    $project_form_state = unserialize(file_get_contents(drupal_get_path('module', 'l10n_remote') . '/tests/mockups/form_state_add_project_submit.txt'));
+    l10n_server_admin_projects_edit_form_submit(array(), $project_form_state);
 
-    //Load module / mockup
-
+    //Load translation request
     $this->translation_request = unserialize(file_get_contents(drupal_get_path('module', 'l10n_remote') . '/tests/mockups/translation_en_da.txt'));
 
+    //Adding values to db
     //Add language da to databse
     db_insert('languages')
       ->fields(array(
@@ -53,8 +46,38 @@ class L10nRemoteTest extends DrupalWebTestCase {
       'weight' => 0,
     ))
       ->execute();
+
+    //Adding a release
+    db_insert('l10n_server_release')
+      ->fields(array(
+      'rid' => 1,
+      'pid' => 1,
+      'title' => '7.x-0.1',
+      'download_link' => '',
+      'last_parsed' => 0,
+      'weight' => 0,
+      'sid_count' => 0,
+    ))
+      ->execute();
+
+    //Addind a file
+    db_insert('l10n_server_file')
+      ->fields(array(
+      'fid' => 1,
+      'pid' => 1,
+      'rid' => 1,
+      'location' => 'init.po',
+      'revision' => '',
+    ))
+      ->execute();
   }
 
+  /**
+   * Testing the method l10n_remote_xmlrpc_string_submit in l10n_remote.module.
+   * The method receives submissions from the l10n_client and returns an appropriate answer to the client.
+   *
+   * @see l10n_remote.module
+   */
   public function testStringSubmission() {
     $this->drupalLogin($this->u_translater_1);
 
@@ -74,35 +97,61 @@ class L10nRemoteTest extends DrupalWebTestCase {
 
     //Test for empty translation. Empty translations should not be accepted
     $fake_translation = '';
-    $fake_signature = md5(l10n_remote_user_api_key($uid, $client_token) . $langcode . $source . $fake_translation  . $client_token);
+    $fake_signature = md5(l10n_remote_user_api_key($uid, $client_token) . $langcode . $source . $fake_translation . $client_token);
     $resp = $this->_submitTranslation($langcode, $source, $fake_translation, $uid, $client_token, $fake_signature, $context, $project);
     $this->assertEqual($resp['reason'], 'Empty translations are not saved.', t('Response: %response', array('%response' => $resp['reason'])));
 
-    //Test for unauthorized account used for submission
+    //test for unauthorized account used for submission
     $fake_uid = 50;
-    $fake_signature = md5(l10n_remote_user_api_key($fake_uid, $client_token) . $langcode . $source . $translation  . $client_token);
+    $fake_signature = md5(l10n_remote_user_api_key($fake_uid, $client_token) . $langcode . $source . $translation . $client_token);
     $resp = $this->_submitTranslation($langcode, $source, $translation, $fake_uid, $client_token, $fake_signature, $context, $project);
     $this->assertEqual($resp['reason'], 'Blocked user account or no permission to submit translations.', t('Response: %response', array('%response' => $resp['reason'])));
 
-    //Test for not accepted language
+    //test for not accepted language
     $fake_langcode = 'de';
-    $fake_signature = md5(l10n_remote_user_api_key($uid, $client_token) . $fake_langcode . $source . $translation  . $client_token);
+    $fake_signature = md5(l10n_remote_user_api_key($uid, $client_token) . $fake_langcode . $source . $translation . $client_token);
     $resp = $this->_submitTranslation($fake_langcode, $source, $translation, $uid, $client_token, $fake_signature, $context, $project);
     $this->assertEqual($resp['reason'], 'Language not accepted.', t('Response: %response', array('%response' => $resp['reason'])));
 
-    //Test for user without permission to submit translations
-    $fake_signature = md5(l10n_remote_user_api_key($uid, $client_token) . $langcode . $source . $translation  . $client_token);
+    //test for user without permission to submit translations
+    $fake_signature = md5(l10n_remote_user_api_key($uid, $client_token) . $langcode . $source . $translation . $client_token);
     $resp = $this->_submitTranslation($langcode, $source, $translation, $uid, $client_token, $fake_signature, $context, $project);
     $this->assertEqual($resp['reason'], 'Not allowed to submit translations in this language.', t('Response: %response', array('%response' => $resp['reason'])));
 
-    //Test for submission of translations for unknown projects
+    //test for submission of translations for unknown projects
     $this->drupalLogin($this->u_translater_2);
     $uid = $this->loggedInUser->uid;
 
     $fake_project = 'fake_project';
-    $fake_signature = md5(l10n_remote_user_api_key($uid, $client_token) . $langcode . $source . $translation  . $client_token);
+    $fake_signature = md5(l10n_remote_user_api_key($uid, $client_token) . $langcode . $source . $translation . $client_token);
     $resp = $this->_submitTranslation($langcode, $source, $translation, $uid, $client_token, $fake_signature, $context, $fake_project);
     $this->assertEqual($resp['reason'], 'Project "fake_project" doesn\'t exist on server, translation not saved.', t('Response: %response', array('%response' => $resp['reason'])));
+
+    //testing rejection of string - happens if source string is unknown and the $project varitable is undefined
+    $fake_project = '';
+    $fake_signature = md5(l10n_remote_user_api_key($uid, $client_token) . $langcode . $source . $translation . $client_token);
+    $resp = $this->_submitTranslation($langcode, $source, $translation, $uid, $client_token, $fake_signature, $context, $fake_project);
+    $this->assertEqual($resp['reason'], 'Source string not found on server, translation not saved.', t('Response: %response', array('%response' => $resp['reason'])));
+
+    //test submission of unknown string to a known project - should be accepted
+    $project = 'test_project';
+    $fake_signature = md5(l10n_remote_user_api_key($uid, $client_token) . $langcode . $source . $translation . $client_token);
+    $resp = $this->_submitTranslation($langcode, $source, $translation, $uid, $client_token, $fake_signature, $context, $project);
+    $this->assertTrue($resp['status'], t('Unknown string was saved with id: %sid', array('%sid' => $resp['sid'])));
+
+    //as long as suggestions are approved on the project submitting the same string should not spawn an error
+    $project = 'test_project';
+    $fake_signature = md5(l10n_remote_user_api_key($uid, $client_token) . $langcode . $source . $translation . $client_token);
+    $resp = $this->_submitTranslation($langcode, $source, $translation, $uid, $client_token, $fake_signature, $context, $project);
+    $this->assertTrue($resp['status'], t('Unknown string was saved with id: %sid', array('%sid' => $resp['sid'])));
+
+    //setting the accept_suggestions value to 0 on the project should spawn an error when submitting an already active translations
+    db_update('l10n_server_project')->fields(array('accept_suggestions' => 0))->execute();
+
+    $project = 'test_project';
+    $fake_signature = md5(l10n_remote_user_api_key($uid, $client_token) . $langcode . $source . $translation . $client_token);
+    $resp = $this->_submitTranslation($langcode, $source, $translation, $uid, $client_token, $fake_signature, $context, $project);
+    $this->assertEqual($resp['reason'], 'Suggested translation already appears as active translation or suggestion.', t('Response: %response', array('%response' => $resp['reason'])));
   }
 
   /**
@@ -116,7 +165,7 @@ class L10nRemoteTest extends DrupalWebTestCase {
    * @param String $project
    * @return array Response
    */
-  private function _submitTranslation($langcode, $source, $translation, $uid, $client_token, $signature, $context, $project){
+  private function _submitTranslation($langcode, $source, $translation, $uid, $client_token, $signature, $context, $project) {
     $response = l10n_remote_xmlrpc_string_submit($langcode, $source, $translation, $uid, $client_token, $signature, $context, $project);
     return $response;
   }
