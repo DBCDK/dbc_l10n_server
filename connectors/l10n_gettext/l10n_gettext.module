@@ -37,11 +37,11 @@ function l10n_gettext_upload_handler($form, $form_state) {
     // Save file info and mark the file parsed.
     $fid = db_insert('l10n_server_file')
       ->fields(array(
-          'pid' => $project->pid,
-          'rid' => $release->rid,
-          'location' => $file->filename,
-          'revision' => '',
-        ))
+      'pid' => $project->pid,
+      'rid' => $release->rid,
+      'location' => $file->filename,
+      'revision' => '',
+    ))
       ->execute();
 
     // Do the actual parsing on the local file.
@@ -49,9 +49,9 @@ function l10n_gettext_upload_handler($form, $form_state) {
       $sid_count = l10n_gettext_store_string();
       drupal_set_message(format_plural($sid_count, 'The source file was successfully imported. One source string was added.', 'The source file was successfully imported. @count source strings were added.'));
       db_update('l10n_server_release')
-	->fields(array('sid_count' => $sid_count))
-	->condition('rid', $release->rid)
-	->execute();
+        ->fields(array('sid_count' => $sid_count))
+        ->condition('rid', $release->rid)
+        ->execute();
     }
 
     // Update this only once the parsing process succeeds.
@@ -85,11 +85,11 @@ function l10n_gettext_store_string($value = NULL, $pid = NULL, $rid = NULL, $fid
     if (!$sid) {
       // String does not exist.
       $sid = db_insert('l10n_server_string')
-	->fields(array(
-            'value' => $msgid,
-            'context' => $context,
-            'hashkey' => md5($msgid . $context),
-          ))
+        ->fields(array(
+        'value' => $msgid,
+        'context' => $context,
+        'hashkey' => md5($msgid . $context),
+      ))
         ->execute();
     }
 
@@ -98,18 +98,18 @@ function l10n_gettext_store_string($value = NULL, $pid = NULL, $rid = NULL, $fid
       ->condition('sid', $sid)
       ->condition('lineno', 0)
       ->condition('type', 2);
-    if ( ! $select->execute()->fetchField() ) {
+    if (!$select->execute()->fetchField()) {
       // Location does not exist with this string.
       db_insert('l10n_server_line')
-	->fields(array(
-            'pid' => $pid,
-            'rid' => $rid,
-            'fid' => $fid,
-            'sid' => $sid,
-            'lineno' => 0,
-            'type' => 2,
-          ))
-	->execute();
+        ->fields(array(
+        'pid' => $pid,
+        'rid' => $rid,
+        'fid' => $fid,
+        'sid' => $sid,
+        'lineno' => 0,
+        'type' => 2,
+      ))
+        ->execute();
     }
     $sids[$sid] = 1;
     return $sid;
