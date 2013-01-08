@@ -76,6 +76,7 @@ class L10nRemoteTest extends DrupalWebTestCase {
    * Testing the method l10n_remote_xmlrpc_string_submit in l10n_remote.module.
    * The method receives submissions from the l10n_client and returns an appropriate answer to the client.
    *
+   * @see l10n_remote_xmlrpc_string_submit()
    * @see l10n_remote.module
    */
   public function testStringSubmission() {
@@ -139,8 +140,8 @@ class L10nRemoteTest extends DrupalWebTestCase {
     $resp = $this->_submitTranslation($langcode, $source, $translation, $uid, $client_token, $fake_signature, $context, $project);
     $this->assertTrue($resp['status'], t('Unknown string was saved with id: %sid', array('%sid' => $resp['sid'])));
 
-    //as long as suggestions are approved on the project submitting the same string should not spawn an error
-    $project = 'test_project';
+    //as long as suggestions are approved on the project, submitting the same string should not spawn an error
+    #$project = 'test_project';
     $fake_signature = md5(l10n_remote_user_api_key($uid, $client_token) . $langcode . $source . $translation . $client_token);
     $resp = $this->_submitTranslation($langcode, $source, $translation, $uid, $client_token, $fake_signature, $context, $project);
     $this->assertTrue($resp['status'], t('Unknown string was saved with id: %sid', array('%sid' => $resp['sid'])));
@@ -152,6 +153,46 @@ class L10nRemoteTest extends DrupalWebTestCase {
     $fake_signature = md5(l10n_remote_user_api_key($uid, $client_token) . $langcode . $source . $translation . $client_token);
     $resp = $this->_submitTranslation($langcode, $source, $translation, $uid, $client_token, $fake_signature, $context, $project);
     $this->assertEqual($resp['reason'], 'Suggested translation already appears as active translation or suggestion.', t('Response: %response', array('%response' => $resp['reason'])));
+  }
+
+  /**
+   * Test of method dbc_l10n_remote_add_string().
+   *
+   * @see dbc_l10n_remote_add_string()
+   * @see l10n_remote.module
+   */
+  public function testAddingNewString(){
+    //create fake project that have no associated release
+    db_insert('l10n_server_project')
+      ->fields(array(
+      'pid' => 10,
+      'uri' => 'fake_project',
+      'title' => 'Fake Project',
+      'home_link' => '',
+      'last_parsed' => NULL,
+      'connector_module' => 'l10n_gettext_uploads',
+      'status' => 1,
+      'weight' => 0,
+      'accept_suggestions' => 0,
+    ))
+      ->execute();
+
+    //test submission to unknown project
+    $unknown_project = 'unknown project';
+    $response = dbc_l10n_remote_add_string($this->translation_request['source'], $this->translation_request['context'], $unknown_project);
+    $this->assertNotNull($response['error'], 'Error message is present');
+    $this->assertEqual($response['error'], 'Project "unknown project" doesn\'t exist on server');
+
+    //test submission to a known project without an associated release
+    $fake_project = 'fake_project';
+    $response = dbc_l10n_remote_add_string($this->translation_request['source'], $this->translation_request['context'], $fake_project);
+    $this->assertNotNull($response['error'], 'Error message is present');
+    $this->assertEqual($response['error'], 'No release associated with project "fake_project"');
+
+    //test succesful submission of string
+    $response = dbc_l10n_remote_add_string($this->translation_request['source'], $this->translation_request['context'], $this->translation_request['project']);
+    $this->assertNotNull($response['sid'], 'sid present');
+    $this->assertNotNull($response['pid'], 'pid present');
   }
 
   /**
