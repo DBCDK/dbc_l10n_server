@@ -29,6 +29,7 @@ module_load_include('inc', 'l10n_community', 'export');
  *   Optional language object to check only this one.
  * @param $cron
  *   In a cron run, a release may be packaged partially, for some languages.
+ * @return array
  */
 function l10n_packager_release_check($release, $force = FALSE, $limit = 0, $language = NULL, $cron = FALSE) {
   $check_languages = isset($language) ? array($language->language => $language) : l10n_community_get_languages();
@@ -168,8 +169,7 @@ function l10n_packager_release_package($release, $language, $file = NULL, $times
  * @param $languages
  *   Array of language codes to repackage or none.
  *
- * @return
- *   Batch array.
+ * @return array Batch.
  */
 function l10n_packager_release_batch($rid, $languages = NULL) {
   $rids = is_array($rid) ? $rid : array($rid);

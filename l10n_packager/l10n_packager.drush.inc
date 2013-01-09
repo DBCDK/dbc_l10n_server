@@ -25,7 +25,8 @@ function l10n_packager_drush_command() {
  * Drush command callback
  */
 function l10n_packager_drush_update() {
-  list($checked, $updated, $time) = l10n_packager_check_updates();
+  $result = l10n_packager_check_updates();
+  list($checked, $updated, $time, $rids) = $result;
   $vars = array(
     '!checkmax' => variable_get('l10n_packager_release_limit', 10),
     '!checked' => $checked,

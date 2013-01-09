@@ -74,8 +74,17 @@ function l10n_packager_menu() {
  */
 function l10n_packager_cron() {
   if (variable_get('l10n_packager_cron', 0)) {
-    l10n_packager_check_updates();
+    $result = l10n_packager_check_updates();
+    if (isset($result['rids']) && !empty($result['rids'])) {
+      l10n_packager_batch_translations($result['rids']);
+    }
   }
+}
+
+function l10n_packager_batch_translations($rids) {
+  $batch = l10n_packager_release_batch($rids);
+  batch_set($batch);
+  batch_process(NULL);
 }
 
 /**
@@ -90,7 +99,7 @@ function l10n_packager_check_updates() {
 
     timer_start('l10n_packager');
     module_load_include('inc', 'l10n_packager');
-    $timestamp = REQUEST_TIME - $interval;
+    $timestamp = REQUEST_TIME; // - $interval;
     $file_limit = variable_get('l10n_packager_file_limit', 1);
     $count_files = $count_check = 0;
 
@@ -103,8 +112,10 @@ function l10n_packager_check_updates() {
                  OR (pr.status = :status AND (pr.checked < :checked OR pr.updated < :updated))
               ORDER BY pr.checked";
     $result = db_query_range($query, 0, variable_get('l10n_packager_release_limit', 10),
-              array(':status' => L10N_PACKAGER_ACTIVE, ':checked' => $timestamp, ':updated' => $timestamp));
+      array(':status' => L10N_PACKAGER_ACTIVE, ':checked' => $timestamp, ':updated' => $timestamp));
+    $rids = array();
     while ((!$file_limit || $file_limit > $count_files) && ($release = $result->fetchObject())) {
+      $rids[] = $release->rid;
       $updates = l10n_packager_release_check($release, FALSE, $file_limit - $count_files, NULL, TRUE);
       $count_files += count($updates);
       $count_check++;
@@ -115,7 +126,7 @@ function l10n_packager_check_updates() {
     watchdog('l10n_packager', '@ms ms for %checked releases/%repack files.', array('%checked' => $count_check, '%repack' => $count_files, '@ms' => $time));
   }
 
-  return array($count_check, $count_files, $time);
+  return array($count_check, $count_files, $time, 'rids' => $rids);
 }
 
 /**
@@ -302,10 +313,10 @@ function l10n_packager_build_download_links($uri) {
     foreach ($paths as $path => $dummy) {
       list($core, $name) = explode('/', $path);
       $list[] = array('data' => array(
-                  '#type' => 'link',
-                  '#title' => t('Translations for @core_version', array('@core_version' => $core)),
-                  '#href' =>  $url . '/' . $path,
-                ));
+        '#type' => 'link',
+        '#title' => t('Translations for @core_version', array('@core_version' => $core)),
+        '#href' => $url . '/' . $path,
+      ));
     }
 
     $rendered = count($list) ? theme('item_list', array('items' => $list)) : t('No downloads available for this project.');
@@ -433,10 +444,10 @@ function l10n_packager_project_downloads($project, $language, $summary = FALSE, 
       'class' => array('l10n-packager-detail l10n-packager-detail-' . $uri_class),
       'data' => array(
         array('data' => array(
-            '#type' => 'link',
-            '#title' => $project->title,
-            '#href' => 'translate/projects/' . $project->uri,
-          )),
+          '#type' => 'link',
+          '#title' => $project->title,
+          '#href' => 'translate/projects/' . $project->uri,
+        )),
         $latest_item->title,
         array(
           'data' => array(
