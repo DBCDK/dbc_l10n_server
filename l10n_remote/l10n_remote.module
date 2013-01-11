@@ -173,31 +173,36 @@ function l10n_remote_xmlrpc_string_submit($langcode, $source, $translation, $uid
   $select = db_select('l10n_server_string', 's')->fields('s', array('sid'))
     ->condition('hashkey', md5($source . $context));
   $sid = $select->execute()->fetchField();
-  if (!$sid) {
-    watchdog('l10n_community', 'Source string does not exist on server.', array(), WATCHDOG_WARNING);
-    if (!empty($project)) {
-      $asoc = dbc_l10n_remote_add_string($source, $context, $project);
 
-      if (isset($asoc['error'])) {
-        watchdog('l10n_community', 'Project %project could not be found on the server.', array('%project' => $project), WATCHDOG_ERROR);
-        return array('status' => FALSE, 'reason' => $asoc['error'] . ', translation not saved.');
-      }
-      $sid = $asoc['sid'];
-      watchdog('l10n_community', 'An unknown string, %source, was added to the project %project', array('%source' => $source, '%project' => $project), WATCHDOG_INFO);
+  if (!$sid && empty($project)) {
+    watchdog('l10n_community', 'Source string was NOT saved as a new string. No project provided to associate with string.', array(), WATCHDOG_ERROR);
+    return array('status' => FALSE, 'reason' => 'Source string not found on server, translation not saved.');
+  }
+  else if (!$sid && !empty($project)) {
+    $asoc = dbc_l10n_remote_add_string($source, $context, $project);
+    if (isset($asoc['error'])) {
+      watchdog('l10n_community', 'Project %project could not be found on the server.', array('%project' => $project), WATCHDOG_ERROR);
+      return array('status' => FALSE, 'reason' => $asoc['error'] . ', translation not saved.');
     }
-    else {
-      watchdog('l10n_community', 'Source string was NOT saved as a new string.', array(), WATCHDOG_ERROR);
-      return array('status' => FALSE, 'reason' => 'Source string not found on server, translation not saved.');
+    $sid = $asoc['sid'];
+    watchdog('l10n_community', 'An unknown string, %source, was added to the project %project', array('%source' => $source, '%project' => $project), WATCHDOG_INFO);
+  }
+  else if ($sid && !empty($project)) {
+    $asoc = dbc_l10n_remote_add_string($source, $context, $project);
+    if (isset($asoc['error'])) {
+      watchdog('l10n_community', 'Project %project could not be found on the server.', array('%project' => $project), WATCHDOG_ERROR);
+      return array('status' => FALSE, 'reason' => $asoc['error'] . ', translation not saved.');
     }
+    watchdog('l10n_community', 'An unknown string, %source, was added to the project %project', array('%source' => $source, '%project' => $project), WATCHDOG_INFO);
   }
 
   $accept_suggestions = 0;
-  if(!empty($project)){
+  if (!empty($project)) {
     $accept_suggestions = db_select('l10n_server_project', 'p')->fields('p', array('accept_suggestions'))
       ->condition('uri', $project)->execute()->fetchField();
   }
 
-  // Attempt to add this as a suggestion.
+// Attempt to add this as a suggestion.
   $tid = l10n_community_add_suggestion($sid, $translation, $langcode, $uid, $uid, L10N_SERVER_MEDIUM_REMOTE, $accept_suggestions);
 
   if ($tid === FALSE) {
@@ -209,7 +214,7 @@ function l10n_remote_xmlrpc_string_submit($langcode, $source, $translation, $uid
     return array('status' => FALSE, 'reason' => 'Empty suggestions are not saved.');
   }
 
-  // If we got this far, everything is fine. Signal success to the client.
+// If we got this far, everything is fine. Signal success to the client.
   return array('status' => TRUE, 'sid' => $sid, 'tid' => $tid);
 }
 

@@ -140,8 +140,7 @@ class L10nRemoteTest extends DrupalWebTestCase {
     $resp = $this->_submitTranslation($langcode, $source, $translation, $uid, $client_token, $fake_signature, $context, $project);
     $this->assertTrue($resp['status'], t('Unknown string was saved with id: %sid', array('%sid' => $resp['sid'])));
 
-    //as long as suggestions are approved on the project, submitting the same string should not spawn an error
-    #$project = 'test_project';
+    //as long suggestions are approved on the project, submitting the same string should not spawn an error
     $fake_signature = md5(l10n_remote_user_api_key($uid, $client_token) . $langcode . $source . $translation . $client_token);
     $resp = $this->_submitTranslation($langcode, $source, $translation, $uid, $client_token, $fake_signature, $context, $project);
     $this->assertTrue($resp['status'], t('Unknown string was saved with id: %sid', array('%sid' => $resp['sid'])));
