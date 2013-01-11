@@ -3,14 +3,15 @@ DBC RELATED INFORMATION
 This module is a clone of the l10n_server module found on
 http://drupal.org/project/l10n_server
 
-The code is based on the 7.x-1.x-dev version of the module. As the original
-module currently is in a state of development, code can change without warning
-why the module has been cloned and put into it's own repository where
-development has continued to make the module fit with the needs of DBC A/S.
+The code is based on the 7.x-1.x-dev (released oct 31st 2012) version of the
+module. As the original module currently is in a state of development, code can
+change without warning why the module has been cloned and put into it's own
+repository where development has continued to make the module fit with the needs
+of DBC A/S.
 
 Features:
  - Associate l10n_client translations with a specific project on the server
- - On project level admin can choose whether to accept accept suggestions
+ - On project level admin can choose whether to accept suggestions
    automatically, without manual approval
  - Strings unknown to the server will be added with the projects specified in
    the l10n_client request

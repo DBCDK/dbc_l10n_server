@@ -1,5 +1,5 @@
-name = Localization server
-description = Base backend module for localization server
+name = DBC Localization server
+description = Base backend module for localization server - modified to be used at DBC A/S
 package = "Localization server"
 dependencies[] = locale
 dependencies[] = l10n_pconfig
