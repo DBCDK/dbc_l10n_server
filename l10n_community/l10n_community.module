@@ -976,7 +976,7 @@ function l10n_community_ajax_releases($form, $form_state) {
  * @internal param int|null $pid
  * @return bool|\DatabaseStatementInterface|int|null
  */
-function l10n_community_add_suggestion($sid, $translation, $langcode, $uid_attribution, $uid_user, $medium, $accept_suggestions) {
+function l10n_community_add_suggestion($sid, $translation, $langcode, $uid_attribution, $uid_user, $medium, $accept_suggestions = 0) {
 
   // Load source string and adjust translation whitespace based on source.
   $source_string = db_query('SELECT value FROM {l10n_server_string} WHERE sid = :sid', array(':sid' => $sid))->fetchField();
