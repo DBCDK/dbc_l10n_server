@@ -120,10 +120,6 @@ function l10n_remote_xmlrpc_status($version) {
  * XML-RPC callback to submit strings remotely.
  */
 function l10n_remote_xmlrpc_string_submit($langcode, $source, $translation, $uid, $client_token, $signature, $context, $project) {
-  //mmj - Only for testing  - should be removed in production
-  //$content = serialize(array('langcode' => $langcode, 'source' => $source, 'translation' => $translation, 'uid' => $uid, 'client_token' => $client_token, 'signature' => $signature, 'context' => $context, 'project' => $project));
-  //file_save_data($content, "public://translation_en_da.txt");
-
   // Check signature and permission parameters.
   if (!($uid && $signature == md5(l10n_remote_user_api_key($uid, $client_token) . $langcode . $source . $translation . $client_token))) {
     watchdog('l10n_community', 'Submitted translation with wrong parameters or signature.', NULL, WATCHDOG_WARNING);
